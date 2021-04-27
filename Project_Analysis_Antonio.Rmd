@@ -1,0 +1,170 @@
+---
+title: "BA830Project"
+author: "Antonio Moral"
+date: "4/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(data.table)
+library(tidyverse)
+library(lfe)
+library(fixest)
+library(lubridate)
+library(stargazer)
+library(modelsummary)
+library(mltools)
+library(knitr)
+```
+
+
+
+```{r}
+treatment <- fread('Cognitive_Test_1.csv')
+control<- fread('Cognitive_Test_2.csv')
+treatment <- treatment[, treatment := 1]
+control <- control[, treatment := 0]
+total <- rbind(treatment, control)
+
+```
+
+```{r}
+total <- total[3:75]
+total <- total[-c(40,41),]
+total <- total[Finished=='True']
+total <- total[,list(StartDate,IPAddress,`Duration (in seconds)`,RecordedDate,Q2,Q3,Q4,Q5,SC0,treatment)]
+colnames(total) <- c('StartDate','IPAddress', 'DurationSeconds','RecordedDate','Age','Gender','GPA','WorkExperience','Score','Treatment')
+total$DurationSeconds <- as.integer(total$DurationSeconds)
+total$Age <- as.factor(total$Age)
+total$Gender <- as.factor(total$Gender)
+total$GPA <- as.factor(total$GPA)
+total$WorkExperience <- as.factor(total$WorkExperience)
+total$Score <- as.integer(total$Score)
+total <- unique(total,by = 'IPAddress')
+```
+
+# Randomization Check
+
+```{r}
+treatment_g <- total[Treatment==1]
+treatment_g <- one_hot(treatment_g, cols = c('Age','Gender','GPA','WorkExperience'))
+control_g <- total[Treatment==0]
+control_g <- one_hot(control_g, cols = c('Age','Gender','GPA','WorkExperience'))
+#Age
+age_treat <- summary(treatment_g[,c('Age_<20','Age_20-30','Age_>30')])[4,]
+age_u20_treat <- mean(treatment_g$`Age_<20`)
+age_2030_treat <- mean(treatment_g$`Age_20-30`)
+age_o30_treat <- mean(treatment_g$`Age_>30`)
+
+age_contr <- summary(control_g[,c('Age_<20','Age_20-30','Age_>30')])[4,]
+age_u20_cont <- mean(control_g$`Age_<20`)
+age_2030_cont <- mean(control_g$`Age_20-30`)
+age_o30_cont <- mean(control_g$`Age_>30`)
+
+u20_binomtest<- binom.test(sum(treatment_g$`Age_<20`),length(treatment_g$`Age_<20`),p = age_u20_cont )
+a20to30_binomtest <- binom.test(sum(treatment_g$`Age_20-30`),length(treatment_g$`Age_20-30`),p = age_2030_cont )
+o30_binomtest <- binom.test(sum(treatment_g$`Age_>30`),length(treatment_g$`Age_>30`),p =age_o30_cont )
+
+#Gender
+male_treat <- mean(treatment_g$Gender_Male)
+female_treat <- mean(treatment_g$Gender_Female)
+nonbi_treat <- mean(treatment_g$`Gender_Non-binary / third gender`)
+
+male_contr<- mean(control_g$Gender_Male)
+female_contr <- mean(control_g$Gender_Female)
+nonbi_contr <- mean(control_g$`Gender_Non-binary / third gender`)
+
+male_binomtest<- binom.test(sum(treatment_g$Gender_Male),length(treatment_g$Gender_Male),p = male_contr )
+female_binomtest <- binom.test(sum(treatment_g$Gender_Female),length(treatment_g$Gender_Female),p = female_contr )
+nonbi_binomtest<- binom.test(sum(treatment_g$`Gender_Non-binary / third gender`),length(treatment_g$`Gender_Non-binary / third gender`),p = nonbi_contr )
+
+#GPA
+gpau3_treat <- mean(treatment_g$`GPA_<3.00`)
+gpau3.5_treat <- mean(treatment_g$`GPA_3.00 - 3.50`)
+gpao3.5_treat <- mean(treatment_g$`GPA_>3.50`)
+
+gpau3_contr <- mean(control_g$`GPA_<3.00`)
+gpau3.5_contr <- mean(control_g$`GPA_3.00 - 3.50`)
+gpao3.5_contr <- mean(control_g$`GPA_>3.50`)
+
+gpau3_binomtest <- binom.test(sum(treatment_g$`GPA_<3.00`),length(treatment_g$`GPA_<3.00`),p = gpau3_contr )
+gpau3.5_binomtest <- binom.test(sum(treatment_g$`GPA_3.00 - 3.50`),length(treatment_g$`GPA_3.00 - 3.50`),p = gpau3.5_contr )
+gpao3.5_binomtest <- binom.test(sum(treatment_g$`GPA_>3.50`),length(treatment_g$`GPA_>3.50`),p = gpao3.5_contr )
+
+#Work Experience
+noyears_treat <- mean(treatment_g$`WorkExperience_0 years`)
+u2years_treat <- mean(treatment_g$`WorkExperience_< 2 years`)
+u5years_treat <- mean(treatment_g$`WorkExperience_2 - 5 years`)
+u9years_treat <- mean(treatment_g$`WorkExperience_6 - 9 years`)
+
+noyears_contr <- mean(control_g$`WorkExperience_0 years`)
+u2years_contr <- mean(control_g$`WorkExperience_< 2 years`)
+u5years_contr <- mean(control_g$`WorkExperience_2 - 5 years`)
+u9years_contr <- mean(control_g$`WorkExperience_6 - 9 years`)
+
+noyears_binomtest <- binom.test(sum(treatment_g$`WorkExperience_0 years`),length(treatment_g$`WorkExperience_0 years`),p = noyears_contr )
+u2years_binomtest <- binom.test(sum(treatment_g$`WorkExperience_< 2 years`),length(treatment_g$`WorkExperience_< 2 years`),p = u2years_contr )
+u5years_binomtest <- binom.test(sum(treatment_g$`WorkExperience_2 - 5 years`),length(treatment_g$`WorkExperience_2 - 5 years`),p = u5years_contr )
+u9years_binomtest <- binom.test(sum(treatment_g$`WorkExperience_6 - 9 years`),length(treatment_g$`WorkExperience_6 - 9 years`),p = u9years_contr )
+```
+
+## Randomization Table
+
+```{r}
+
+#Create a table with the data from above, make it legible and exportable.
+#AGE
+age <- c(c(age_u20_treat,age_2030_treat,age_o30_treat), c(age_u20_cont,age_2030_cont,age_o30_cont), c(u20_binomtest$p.value,a20to30_binomtest$p.value,o30_binomtest$p.value))
+age_matrix <-  matrix(age,ncol = 3)
+colnames(age_matrix) <- c('Treatment','Control','P-value')
+rownames(age_matrix) <- c('Under 20','Between 20-30','Over 30')
+age_table <- kable(age_matrix)
+
+#GENDER
+gender <- c(c(male_treat,female_treat,nonbi_treat), c(male_contr,female_contr,nonbi_contr), c(male_binomtest$p.value, female_binomtest$p.value, nonbi_binomtest$p.value))
+gender_matrix <- matrix(gender,ncol = 3)
+colnames(gender_matrix) <- c('Treatment','Control','P-value')
+rownames(gender_matrix) <- c('Male','Female','NonBinary')
+gender_table <- kable(gender_matrix)
+
+#GPA
+grades <- c(c(gpau3_treat, gpau3.5_treat, gpao3.5_treat),c(gpau3_contr, gpau3.5_contr, gpao3.5_contr), c(gpau3_binomtest$p.value, gpau3.5_binomtest$p.value, gpao3.5_binomtest$p.value))
+grades_matrix <- matrix(grades,ncol = 3)
+colnames(grades_matrix) <- c('Treatment','Control','P-value')
+rownames(grades_matrix) <- c('Under 3.0', 'Between 3.0-3.5','Over 3.5')
+grades_table <- kable(grades_matrix)
+
+#EXPERIENCE
+experience <- c(c(noyears_treat, u2years_treat, u5years_treat, u9years_treat), c(noyears_contr, u2years_contr, u5years_contr, u9years_contr), c(noyears_binomtest$p.value, u2years_binomtest$p.value, u5years_binomtest$p.value,  u9years_binomtest$p.value))
+experience_matrix <- matrix(experience, ncol = 3)
+colnames(experience_matrix) <- c('Treatment','Control','P-value')
+rownames(experience_matrix) <- c('No Experience','Under 2 years','Between 2-5','Between 6-9+')
+experience_table <- kable(experience_matrix)
+
+```
+
+## Display and findings
+
+From our randomization analysis we learned that our randomization was partially effective. Our treatment and control groups were statistically similar when it came to their ages and their work experience. However, when looking at the distribution of gender and GPA, we see that the groups in our experiment are statistically different. Seeing these results led to some analysis to understand why these values could be so different in these aspects. Given that for the entire sample (treatment and control groups) has a proportion of males of around 49%, it seems strange that the proportions in each individual groups was so different. One factor that could have influenced this result is the lack of responses our experiment received. The control group is about 20% smaller than our treatment group, given that we did not receive answers from that fraction of subjects. A way to minimize this randomization error would have been to use blocking randomization, meaning that we ensured that our random samples had the same proportion of people as they are in the universe. However, although we did think about applying this method during our planning, we saw that it would have required us to run a preliminary survey to learn about the true proportions in our universe. This, we believed, would have been too demanding of the people in our program given that they also had to respond to multiple other teams' surveys and questionnaires. In future experiments, we would allot more time to planning and making sure the groups in the experiment are statistically similar. However, given that our groups do share some significant similarities, we still believe it is valid to run analysis on the treatment effects. 
+
+
+```{r}
+print(age_table)
+```
+
+```{r}
+print(gender_table)
+```
+
+```{r}
+print(grades_table)
+```
+
+```{r}
+print(experience_table)
+```
+
