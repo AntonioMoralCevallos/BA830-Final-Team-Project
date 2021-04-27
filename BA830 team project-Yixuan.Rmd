@@ -1,0 +1,98 @@
+---
+title: "BA830 team project-Yixuan"
+author: "Yixuan Wang"
+date: "4/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(lfe)
+library(fixest)
+library(lubridate)
+library(stargazer)
+library(modelsummary)
+library(mltools)
+library(knitr)
+treatment <- fread('/Users/wangyixuan/Downloads/Cognitive_Test_1.csv')
+control<- fread('/Users/wangyixuan/Downloads/Cognitive_Test_2.csv')
+```
+
+```{r}
+treatment <- treatment[, treatment := 1]
+control <- control[, treatment := 0]
+total <- rbind(treatment, control)
+total$StartDate <- as.Date(total$StartDate, format= "%Y-%m-%d")
+total <- total[!(total$Finished=='False')]
+total <- total[c(3:28,31:53), c("StartDate", "IPAddress", "Duration (in seconds)", "LocationLatitude", "LocationLongitude", "Q2", "Q3", "Q4", "Q5", "SC0", "treatment")]
+
+# select the first one record of each IPAddress
+IPadd <- split(total,total$IPAddress)
+total2 <- data.frame()
+for(x in IPadd){
+  total2 <- rbind(total2,x[1,])
+}
+total <- total2
+
+# change column names
+colnames(total)[1] = "date"
+colnames(total)[3] = "duration"
+colnames(total)[6] = "age"
+colnames(total)[7] = "gender"
+colnames(total)[8] = "GPA"
+colnames(total)[9] = "work_experience"
+colnames(total)[10] = "score"
+
+# change data type
+total$duration <- as.numeric(total$duration)
+total$score <- as.numeric(total$score)
+total$age <- as.factor(total$age)
+total$gender <- as.factor(total$gender)
+total$GPA <- as.factor(total$GPA)
+total$work_experience <- as.factor(total$work_experience)
+```
+
+# Regression of completion time on treatment
+```{r}
+duration_reg <- feols(duration~treatment, data=total, se='white')
+etable(duration_reg)
+```
+
+## age
+```{r}
+duration_age_reg <- feols(duration~treatment + age, data=total, se='white')
+etable(duration_age_reg)
+```
+
+## gender
+```{r}
+duration_gender_reg <- feols(duration~treatment + gender, data=total, se='white')
+etable(duration_gender_reg)
+```
+
+## GPA
+```{r}
+duration_gpa_reg <- feols(duration~treatment + GPA, data=total, se='white')
+etable(duration_gpa_reg)
+```
+
+## work experience
+```{r}
+duration_exp_reg <- feols(duration~treatment + work_experience, data=total, se='white')
+etable(duration_exp_reg)
+```
+
+## all covariates
+```{r}
+duration_all_reg <- feols(duration~treatment + age + gender + GPA + work_experience, data=total, se='white')
+etable(duration_all_reg)
+```
+
+
+
