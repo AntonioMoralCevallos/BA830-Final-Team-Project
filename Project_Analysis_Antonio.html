@@ -207,12 +207,14 @@ summary {
 ## x dplyr::lag()       masks stats::lag()
 ## x dplyr::last()      masks data.table::last()
 ## x purrr::transpose() masks data.table::transpose()</code></pre>
+<pre><code>## Warning: package &#39;lfe&#39; was built under R version 4.0.4</code></pre>
 <pre><code>## Loading required package: Matrix</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;Matrix&#39;</code></pre>
 <pre><code>## The following objects are masked from &#39;package:tidyr&#39;:
 ## 
 ##     expand, pack, unpack</code></pre>
+<pre><code>## Warning: package &#39;fixest&#39; was built under R version 4.0.5</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;lubridate&#39;</code></pre>
 <pre><code>## The following objects are masked from &#39;package:data.table&#39;:
@@ -226,6 +228,7 @@ summary {
 ## Please cite as:</code></pre>
 <pre><code>##  Hlavac, Marek (2018). stargazer: Well-Formatted Regression and Summary Statistics Tables.</code></pre>
 <pre><code>##  R package version 5.2.2. https://CRAN.R-project.org/package=stargazer</code></pre>
+<pre><code>## Warning: package &#39;modelsummary&#39; was built under R version 4.0.5</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;mltools&#39;</code></pre>
 <pre><code>## The following object is masked from &#39;package:tidyr&#39;:
@@ -250,66 +253,6 @@ total$Score &lt;- as.integer(total$Score)
 total &lt;- unique(total,by = &#39;IPAddress&#39;)</code></pre>
 <div id="randomization-check" class="section level1">
 <h1>Randomization Check</h1>
-<pre class="r"><code>treatment_g &lt;- total[Treatment==1]
-treatment_g &lt;- one_hot(treatment_g, cols = c(&#39;Age&#39;,&#39;Gender&#39;,&#39;GPA&#39;,&#39;WorkExperience&#39;))
-control_g &lt;- total[Treatment==0]
-control_g &lt;- one_hot(control_g, cols = c(&#39;Age&#39;,&#39;Gender&#39;,&#39;GPA&#39;,&#39;WorkExperience&#39;))
-#Age
-age_treat &lt;- summary(treatment_g[,c(&#39;Age_&lt;20&#39;,&#39;Age_20-30&#39;,&#39;Age_&gt;30&#39;)])[4,]
-age_u20_treat &lt;- mean(treatment_g$`Age_&lt;20`)
-age_2030_treat &lt;- mean(treatment_g$`Age_20-30`)
-age_o30_treat &lt;- mean(treatment_g$`Age_&gt;30`)
-
-age_contr &lt;- summary(control_g[,c(&#39;Age_&lt;20&#39;,&#39;Age_20-30&#39;,&#39;Age_&gt;30&#39;)])[4,]
-age_u20_cont &lt;- mean(control_g$`Age_&lt;20`)
-age_2030_cont &lt;- mean(control_g$`Age_20-30`)
-age_o30_cont &lt;- mean(control_g$`Age_&gt;30`)
-
-u20_binomtest&lt;- binom.test(sum(treatment_g$`Age_&lt;20`),length(treatment_g$`Age_&lt;20`),p = age_u20_cont )
-a20to30_binomtest &lt;- binom.test(sum(treatment_g$`Age_20-30`),length(treatment_g$`Age_20-30`),p = age_2030_cont )
-o30_binomtest &lt;- binom.test(sum(treatment_g$`Age_&gt;30`),length(treatment_g$`Age_&gt;30`),p =age_o30_cont )
-
-#Gender
-male_treat &lt;- mean(treatment_g$Gender_Male)
-female_treat &lt;- mean(treatment_g$Gender_Female)
-nonbi_treat &lt;- mean(treatment_g$`Gender_Non-binary / third gender`)
-
-male_contr&lt;- mean(control_g$Gender_Male)
-female_contr &lt;- mean(control_g$Gender_Female)
-nonbi_contr &lt;- mean(control_g$`Gender_Non-binary / third gender`)
-
-male_binomtest&lt;- binom.test(sum(treatment_g$Gender_Male),length(treatment_g$Gender_Male),p = male_contr )
-female_binomtest &lt;- binom.test(sum(treatment_g$Gender_Female),length(treatment_g$Gender_Female),p = female_contr )
-nonbi_binomtest&lt;- binom.test(sum(treatment_g$`Gender_Non-binary / third gender`),length(treatment_g$`Gender_Non-binary / third gender`),p = nonbi_contr )
-
-#GPA
-gpau3_treat &lt;- mean(treatment_g$`GPA_&lt;3.00`)
-gpau3.5_treat &lt;- mean(treatment_g$`GPA_3.00 - 3.50`)
-gpao3.5_treat &lt;- mean(treatment_g$`GPA_&gt;3.50`)
-
-gpau3_contr &lt;- mean(control_g$`GPA_&lt;3.00`)
-gpau3.5_contr &lt;- mean(control_g$`GPA_3.00 - 3.50`)
-gpao3.5_contr &lt;- mean(control_g$`GPA_&gt;3.50`)
-
-gpau3_binomtest &lt;- binom.test(sum(treatment_g$`GPA_&lt;3.00`),length(treatment_g$`GPA_&lt;3.00`),p = gpau3_contr )
-gpau3.5_binomtest &lt;- binom.test(sum(treatment_g$`GPA_3.00 - 3.50`),length(treatment_g$`GPA_3.00 - 3.50`),p = gpau3.5_contr )
-gpao3.5_binomtest &lt;- binom.test(sum(treatment_g$`GPA_&gt;3.50`),length(treatment_g$`GPA_&gt;3.50`),p = gpao3.5_contr )
-
-#Work Experience
-noyears_treat &lt;- mean(treatment_g$`WorkExperience_0 years`)
-u2years_treat &lt;- mean(treatment_g$`WorkExperience_&lt; 2 years`)
-u5years_treat &lt;- mean(treatment_g$`WorkExperience_2 - 5 years`)
-u9years_treat &lt;- mean(treatment_g$`WorkExperience_6 - 9 years`)
-
-noyears_contr &lt;- mean(control_g$`WorkExperience_0 years`)
-u2years_contr &lt;- mean(control_g$`WorkExperience_&lt; 2 years`)
-u5years_contr &lt;- mean(control_g$`WorkExperience_2 - 5 years`)
-u9years_contr &lt;- mean(control_g$`WorkExperience_6 - 9 years`)
-
-noyears_binomtest &lt;- binom.test(sum(treatment_g$`WorkExperience_0 years`),length(treatment_g$`WorkExperience_0 years`),p = noyears_contr )
-u2years_binomtest &lt;- binom.test(sum(treatment_g$`WorkExperience_&lt; 2 years`),length(treatment_g$`WorkExperience_&lt; 2 years`),p = u2years_contr )
-u5years_binomtest &lt;- binom.test(sum(treatment_g$`WorkExperience_2 - 5 years`),length(treatment_g$`WorkExperience_2 - 5 years`),p = u5years_contr )
-u9years_binomtest &lt;- binom.test(sum(treatment_g$`WorkExperience_6 - 9 years`),length(treatment_g$`WorkExperience_6 - 9 years`),p = u9years_contr )</code></pre>
 <div id="randomization-table" class="section level2">
 <h2>Randomization Table</h2>
 <pre class="r"><code>#Create a table with the data from above, make it legible and exportable.

@@ -49,7 +49,7 @@ total <- unique(total,by = 'IPAddress')
 
 # Randomization Check
 
-```{r}
+```{r, include=FALSE}
 treatment_g <- total[Treatment==1]
 treatment_g <- one_hot(treatment_g, cols = c('Age','Gender','GPA','WorkExperience'))
 control_g <- total[Treatment==0]
