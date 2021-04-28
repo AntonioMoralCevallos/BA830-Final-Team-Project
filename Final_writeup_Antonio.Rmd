@@ -1,0 +1,109 @@
+---
+title: "Final_paper"
+author: "Antonio Moral"
+date: "4/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Analysis
+
+## Randomization Check
+From our randomization analysis we learned that our randomization was partially effective. Our treatment and control groups were statistically similar when it came to their ages and their work experience. However, when looking at the distribution of gender and GPA, we see that the groups in our experiment are statistically different. Seeing these results led to some analysis to understand why these values could be so different in these aspects. Given that for the entire sample (treatment and control groups) has a proportion of males of around 49%, it seems strange that the proportions in each individual groups was so different. One factor that could have influenced this result is the lack of responses our experiment received. The control group is about 20% smaller than our treatment group, given that we did not receive answers from that fraction of subjects. A way to minimize this randomization error would have been to use blocking randomization, meaning that we ensured that our random samples had the same proportion of people as they are in the universe. However, although we did think about applying this method during our planning, we saw that it would have required us to run a preliminary survey to learn about the true proportions in our universe. This, we believed, would have been too demanding of the people in our program given that they also had to respond to multiple other teams' surveys and questionnaires. In future experiments, we would allot more time to planning and making sure the groups in the experiment are statistically similar. However, given that our groups do share some significant similarities, we still believe it is valid to run analysis on the treatment effects.
+
+## Regression Results and Interpretation
+
+This experiment led to some very interesting findings. Our team ran regressions on two target variables, Score and Duration of Cognitive test (duration), and added some control variables to analyze the treatment effect resulting from our experiment. As evidenced by the regressions below, analyzing the results of the experiment was difficult given the small sample of responses we received. This is likely the cause of a majority of our values having no statistical significance and a high degree of uncertainty. Regardless, the experiment did provide some insight on our initial question and hypothesis, as seen in the analysis below.
+
+### Regressions on Test Score
+
+Below we can see the results for our regressions on test scores:
+
+```{r ,include=FALSE}
+
+library(data.table)
+library(tidyverse)
+library(lfe)
+library(fixest)
+library(lubridate)
+library(stargazer)
+library(modelsummary)
+library(mltools)
+library(knitr)
+treatment <- fread('Cognitive_Test_1.csv')
+control<- fread('Cognitive_Test_2.csv')
+
+treatment <- treatment[, treatment := 1]
+control <- control[, treatment := 0]
+total <- rbind(treatment, control)
+total$StartDate <- as.Date(total$StartDate, format= "%Y-%m-%d")
+total <- total[!(total$Finished=='False')]
+total <- total[c(3:28,31:53), c("StartDate", "IPAddress", "Duration (in seconds)", "LocationLatitude", "LocationLongitude", "Q2", "Q3", "Q4", "Q5", "SC0", "treatment")]
+
+# select the first one record of each IPAddress
+IPadd <- split(total,total$IPAddress)
+total2 <- data.frame()
+for(x in IPadd){
+  total2 <- rbind(total2,x[1,])
+}
+total <- total2
+
+# change column names
+colnames(total)[1] = "date"
+colnames(total)[3] = "duration"
+colnames(total)[6] = "age"
+colnames(total)[7] = "gender"
+colnames(total)[8] = "GPA"
+colnames(total)[9] = "work_experience"
+colnames(total)[10] = "score"
+
+# change data type
+total$duration <- as.numeric(total$duration)
+total$score <- as.numeric(total$score)
+total$age <- as.factor(total$age)
+total$gender <- as.factor(total$gender)
+total$GPA <- as.factor(total$GPA)
+total$work_experience <- as.factor(total$work_experience)
+
+score_reg <- feols(score~treatment, data=total, se='white')
+score_age_reg <- feols(score~treatment + age, data=total, se='white')
+score_gender_reg <- feols(score~treatment + gender, data=total, se='white')
+score_gpa_reg <- feols(score~treatment + GPA, data=total, se='white')
+score_exp_reg <- feols(score~treatment + work_experience, data=total, se='white')
+score_all_reg <- feols(score~treatment + age + gender + GPA + work_experience, data=total, se='white')
+
+```
+
+```{r, echo=FALSE}
+etable(score_all_reg, score_exp_reg, score_gpa_reg, score_gender_reg, score_age_reg,score_reg,style.tex = )
+
+```
+
+From these regression results it becomes evident that our treatment did not have a statistically significant effect on the scores for people in the treatment group. The only statistically significant values from the regression come from the variables age and GPA. Although some gender variables, non binary and not disclosed, have what looks like a significant effect on score, it is important to note that in our experiment there was only one instance of either gender, and thus we believe that this coefficients are heavily biased. 
+It is interesting to note that although the effect of the treatment was never significant, it is encouraging to see that the effect of the treatment on scores was negative. This gives us an indication that in a new experiment with a much larger sample size we could potentially find that people do in fact perform worse on the first try if they are aware that they will have multiple opportunities to complete a task. 
+
+### Regressions on Duration
+
+Our team also sought to analyze the differences our treatment caused on the time it took respondents to finish the cognitive test.
+Below are the results of the regressions on duration:
+```{r}
+#Yixuans regressions
+
+```
+
+From this results we can observe that our treatment had no statistically significant effect on the time it took respondents to finish the cognitive test. The coefficient for the treatment in these regressions makes it more difficult to analyze, as for some controls the effect is positive and in others it is the opposite. This is most likely because the treatment has such a negligible effect on the time it took respondents to finish, and other control variables, such as a subject's age or work experience  had a bigger effect on the duration of the cognitive test.
+
+
+
+
+# Conclusion
+
+This experiment has produced some very interesting findings. After analyzing the effect of our treatment on the duration of the test and the score obtained, we discovered that people in the MSBA program do not perform differently when they are aware of having multiple chances to complete a task. This finding was surprising as, based on previous experiments and intuition, our team believed that we would see a clear negative effect of the treatment on scores. Although the results were not as expected, some other findings that we did not consider came out of this experiment. The most apparent one, even if evident in hindsight, is the relationship between reported GPA and scores. Even if having a high GPA is not causal to having a higher score, it is very interesting to observe and ponder on why these individuals did statistically significantly better on the cognitive test. 
+
+Furthermore, although the treatment effects found were not statistically significant, they nevertheless tended to be in line with our initial hypothesis, which makes us confident to think that in an experiment with a larger sample size we would likely find a significant effect that would support our hypothesis. There are multiple reasons why our experiment did not produce the results we expected it to. Firstly, and as mentioned before, it effect size would have to be immense to be discoverable within a sample of this size. And most importantly, the issue of failure to treat and the overall lack of responses obtained was the biggest crux of our experiment. It is likely that this reduced number of responses contributed to the lack of statistical significance and the statistical differences between treatment and control groups.
+
+In the future, running an experiment similar to this but with some slight adjustments could lead to findings that are both more generalizable and statistically significant. For one, changing the randomization strategy used would lead to more even treatment and control groups. For this, sending out a preliminary survey to  know of the proportion of people in the universe with similar characteristics would be allow for Blocking randomization. Moreover, the cognitive test that would be answered could be better planned and tested to allow for a more evident disparity between treatment and control results, as well as having some other controls that could be used to obtain a more precise estimate of the true treatment effect. With these small changes, the experiment would display more significant findings.
+
