@@ -1,0 +1,77 @@
+---
+title: "BA830_Final_Project"
+author: "Ying Wu (U30529371)"
+date: "27/04/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(lfe)
+library(fixest)
+library(lubridate)
+library(stargazer)
+library(modelsummary)
+library(mltools)
+library(knitr)
+```
+
+##data loading 
+```{r}
+treatment <- fread('Cognitive_Test_1.csv')
+control<- fread('Cognitive_Test_2.csv')
+```
+
+##data cleaning 
+```{r}
+treatment <- treatment[, treatment := 1]
+control <- control[, treatment := 0]
+total <- rbind(treatment, control)
+total$StartDate <- as.Date(total$StartDate, format= "%Y-%m-%d")
+total <- total[!(total$Finished=='False')]
+total <- total[c(3:28,31:53), c("StartDate", "IPAddress", "Duration (in seconds)", "LocationLatitude", "LocationLongitude", "Q2", "Q3", "Q4", "Q5", "SC0", "treatment")]
+# select the first one record of each IPAddress
+IPadd <- split(total,total$IPAddress)
+total2 <- data.frame()
+for(x in IPadd){
+  total2 <- rbind(total2,x[1,])
+}
+total <- total2
+# change column names
+colnames(total)[1] = "date"
+colnames(total)[3] = "duration"
+colnames(total)[6] = "age"
+colnames(total)[7] = "gender"
+colnames(total)[8] = "GPA"
+colnames(total)[9] = "work_experience"
+colnames(total)[10] = "score"
+# change data type
+total$duration <- as.numeric(total$duration)
+total$score <- as.numeric(total$score)
+total$age <- as.factor(total$age)
+total$gender <- as.factor(total$gender)
+total$GPA <- as.factor(total$GPA)
+total$work_experience <- as.factor(total$work_experience)
+```
+
+##average score for treatment vs control
+```{r}
+treatment_avg <- total[total$treatment == 1, mean(score)]
+treatment_avg
+
+control_avg <- total[total$treatment == 0, mean(score)]
+control_avg
+```
+We found that average score of control group is slightly higher than that of treatment group. 
+
+##ttest
+```{r}
+t.test(total[treatment == 1, score], 
+       total[treatment == 0, score])
+```
+Since p-value is larger than 0.05, the true difference in mean scores between the control group and treatment group is not statistically significant from 0. In other words, the mean scores between two groups are not significantly different. 
