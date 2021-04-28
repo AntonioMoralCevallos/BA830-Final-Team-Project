@@ -1,0 +1,260 @@
+---
+title: "BA830 Team Project-Team 13"
+author: "Antonio Moral Cevallos, Bosoo Kim, Jiajian(Sylar) Guo, Manushi Patel, Ying(Amber) Wu, Yixuan Wang"
+date: "4/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction
+(Amber)
+
+```{r message=FALSE}
+library(data.table)
+library(tidyverse)
+library(lfe)
+library(fixest)
+library(lubridate)
+library(stargazer)
+library(modelsummary)
+library(mltools)
+library(knitr)
+library(broom)
+library(purrr)
+# load dataset
+treatment <- fread('Cognitive_Test_1.csv')
+control<- fread('Cognitive_Test_2.csv')
+```
+
+```{r message=FALSE, warning=FALSE}
+# Data cleaning
+treatment <- treatment[, treatment := 1]
+control <- control[, treatment := 0]
+total <- rbind(treatment, control)
+total$StartDate <- as.Date(total$StartDate, format= "%Y-%m-%d")
+total <- total[!(total$Finished=='False')]
+total <- total[c(3:28,31:53), c("StartDate", "IPAddress", "Duration (in seconds)", "LocationLatitude", "LocationLongitude", "Q2", "Q3", "Q4", "Q5", "SC0", "treatment")]
+IPadd <- split(total,total$IPAddress)
+total2 <- data.frame()
+for(x in IPadd){total2 <- rbind(total2,x[1,])}
+total <- total2
+```
+
+```{r}
+# change column names and data type
+colnames(total)[c(1,3,6,7,8,9,10)] = c("date","duration","age","gender","GPA","work_experience","score")
+total$duration <- as.numeric(total$duration)
+total$score <- as.numeric(total$score)
+total$age <- as.factor(total$age)
+total$gender <- as.factor(total$gender)
+total$GPA <- as.factor(total$GPA)
+total$work_experience <- as.factor(total$work_experience)
+```
+
+### Method
+(Manushi, Bosoo)
+
+
+### Data Analysis
+(Antonio, Yixuan, Bosoo)
+
+```{r echo=FALSE, fig.height=3, fig.width=3}
+##average score for treatment vs control
+score_graph <- total[, .(mean_score = mean(score)), by = treatment]
+score_graph$treatment <- as.factor(score_graph$treatment)
+ggplot(score_graph, aes(x = treatment, y = mean_score, fill=treatment)) + geom_bar(stat = 'identity', width = 0.3) + ggtitle("Average Score")
+
+##average completion time for treatment vs control
+duration_graph <- total[, .(mean_duration = mean(duration)), by = treatment]
+duration_graph$treatment <- as.factor(duration_graph$treatment)
+ggplot(duration_graph, aes(x = treatment, y = mean_duration, fill=treatment)) + geom_bar(stat = 'identity', width = 0.3) + ggtitle("Average Completion time")
+```
+
+* t-test
+```{r echo=TRUE}
+t1 <- t.test(total[treatment == 1, score], total[treatment == 0, score])
+t2 <- t.test(total[treatment == 1, duration], total[treatment == 0, duration])
+tab <- map_df(list(t1, t2), tidy)
+tab
+```
+
+Since p-value is larger than 0.05, the true difference in mean scores between the control group and treatment group is not statistically significant from 0. In other words, the mean scores between two groups are not significantly different. Similarly, the mean completion time between two groups are also not significantly different.
+
+
+#### Randomization check
+
+```{r include=FALSE}
+treatment_g <- total[treatment==1]
+treatment_g <- one_hot(treatment_g, cols = c('age','gender','GPA','work_experience'))
+control_g <- total[treatment==0]
+control_g <- one_hot(control_g, cols = c('age','gender','GPA','work_experience'))
+#Age
+age_treat <- summary(treatment_g[,c('age_<20','age_20-30','age_>30')])[4,]
+age_u20_treat <- mean(treatment_g$`age_<20`)
+age_2030_treat <- mean(treatment_g$`age_20-30`)
+age_o30_treat <- mean(treatment_g$`age_>30`)
+age_contr <- summary(control_g[,c('age_<20','age_20-30','age_>30')])[4,]
+age_u20_cont <- mean(control_g$`age_<20`)
+age_2030_cont <- mean(control_g$`age_20-30`)
+age_o30_cont <- mean(control_g$`age_>30`)
+u20_binomtest<- binom.test(sum(treatment_g$`age_<20`),length(treatment_g$`age_<20`),p = age_u20_cont )
+a20to30_binomtest <- binom.test(sum(treatment_g$`age_20-30`),length(treatment_g$`age_20-30`),p = age_2030_cont )
+o30_binomtest <- binom.test(sum(treatment_g$`age_>30`),length(treatment_g$`age_>30`),p =age_o30_cont )
+#Gender
+male_treat <- mean(treatment_g$gender_Male)
+female_treat <- mean(treatment_g$gender_Female)
+nonbi_treat <- mean(treatment_g$`gender_Non-binary / third gender`)
+male_contr<- mean(control_g$gender_Male)
+female_contr <- mean(control_g$gender_Female)
+nonbi_contr <- mean(control_g$`gender_Non-binary / third gender`)
+male_binomtest<- binom.test(sum(treatment_g$gender_Male),length(treatment_g$gender_Male),p = male_contr )
+female_binomtest <- binom.test(sum(treatment_g$gender_Female),length(treatment_g$gender_Female),p = female_contr )
+nonbi_binomtest<- binom.test(sum(treatment_g$`gender_Non-binary / third gender`),length(treatment_g$`gender_Non-binary / third gender`),p = nonbi_contr )
+#GPA
+gpau3_treat <- mean(treatment_g$`GPA_<3.00`)
+gpau3.5_treat <- mean(treatment_g$`GPA_3.00 - 3.50`)
+gpao3.5_treat <- mean(treatment_g$`GPA_>3.50`)
+gpau3_contr <- mean(control_g$`GPA_<3.00`)
+gpau3.5_contr <- mean(control_g$`GPA_3.00 - 3.50`)
+gpao3.5_contr <- mean(control_g$`GPA_>3.50`)
+gpau3_binomtest <- binom.test(sum(treatment_g$`GPA_<3.00`),length(treatment_g$`GPA_<3.00`),p = gpau3_contr )
+gpau3.5_binomtest <- binom.test(sum(treatment_g$`GPA_3.00 - 3.50`),length(treatment_g$`GPA_3.00 - 3.50`),p = gpau3.5_contr )
+gpao3.5_binomtest <- binom.test(sum(treatment_g$`GPA_>3.50`),length(treatment_g$`GPA_>3.50`),p = gpao3.5_contr )
+#Work Experience
+noyears_treat <- mean(treatment_g$`work_experience_0 years`)
+u2years_treat <- mean(treatment_g$`work_experience_< 2 years`)
+u5years_treat <- mean(treatment_g$`work_experience_2 - 5 years`)
+u9years_treat <- mean(treatment_g$`work_experience_6 - 9 years`)
+noyears_contr <- mean(control_g$`work_experience_0 years`)
+u2years_contr <- mean(control_g$`work_experience_< 2 years`)
+u5years_contr <- mean(control_g$`work_experience_2 - 5 years`)
+u9years_contr <- mean(control_g$`work_experience_6 - 9 years`)
+noyears_binomtest <- binom.test(sum(treatment_g$`work_experience_0 years`),length(treatment_g$`work_experience_0 years`),p = noyears_contr )
+u2years_binomtest <- binom.test(sum(treatment_g$`work_experience_< 2 years`),length(treatment_g$`work_experience_< 2 years`),p = u2years_contr )
+u5years_binomtest <- binom.test(sum(treatment_g$`work_experience_2 - 5 years`),length(treatment_g$`work_experience_2 - 5 years`),p = u5years_contr )
+u9years_binomtest <- binom.test(sum(treatment_g$`work_experience_6 - 9 years`),length(treatment_g$`work_experience_6 - 9 years`),p = u9years_contr )
+```
+
+```{r echo=FALSE}
+#Create a table with the data from above, make it legible and exportable.
+#AGE
+age <- c(c(age_u20_treat,age_2030_treat,age_o30_treat), c(age_u20_cont,age_2030_cont,age_o30_cont), c(u20_binomtest$p.value,a20to30_binomtest$p.value,o30_binomtest$p.value))
+age_matrix <-  matrix(age,ncol = 3)
+colnames(age_matrix) <- c('Treatment','Control','P-value')
+rownames(age_matrix) <- c('Under 20','Between 20-30','Over 30')
+age_table <- kable(age_matrix)
+age_table
+
+#GENDER
+gender <- c(c(male_treat,female_treat,nonbi_treat), c(male_contr,female_contr,nonbi_contr), c(male_binomtest$p.value, female_binomtest$p.value, nonbi_binomtest$p.value))
+gender_matrix <- matrix(gender,ncol = 3)
+colnames(gender_matrix) <- c('Treatment','Control','P-value')
+rownames(gender_matrix) <- c('Male','Female','NonBinary')
+gender_table <- kable(gender_matrix)
+gender_table
+
+#GPA
+grades <- c(c(gpau3_treat, gpau3.5_treat, gpao3.5_treat),c(gpau3_contr, gpau3.5_contr, gpao3.5_contr), c(gpau3_binomtest$p.value, gpau3.5_binomtest$p.value, gpao3.5_binomtest$p.value))
+grades_matrix <- matrix(grades,ncol = 3)
+colnames(grades_matrix) <- c('Treatment','Control','P-value')
+rownames(grades_matrix) <- c('Under 3.0', 'Between 3.0-3.5','Over 3.5')
+grades_table <- kable(grades_matrix)
+grades_table
+
+#EXPERIENCE
+experience <- c(c(noyears_treat, u2years_treat, u5years_treat, u9years_treat), c(noyears_contr, u2years_contr, u5years_contr, u9years_contr), c(noyears_binomtest$p.value, u2years_binomtest$p.value, u5years_binomtest$p.value,  u9years_binomtest$p.value))
+experience_matrix <- matrix(experience, ncol = 3)
+colnames(experience_matrix) <- c('Treatment','Control','P-value')
+rownames(experience_matrix) <- c('No Experience','Under 2 years','Between 2-5','Between 6-9+')
+experience_table <- kable(experience_matrix)
+experience_table
+```
+
+
+#### Regression of Score on treatment
+
+```{r}
+score_reg <- lm(score~treatment, data=total)
+score_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Age
+```{r}
+score_age_reg <- feols(score~treatment + age, data=total, se='white')
+score_age_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Gender
+```{r}
+score_gender_reg <- feols(score~treatment + gender, data=total, se='white')
+score_gender_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for GPA
+```{r}
+score_gpa_reg <- feols(score~treatment + GPA, data=total, se='white')
+score_gpa_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Work Experience
+```{r}
+score_exp_reg <- feols(score~treatment + work_experience, data=total, se='white')
+score_exp_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for All covariates
+```{r message=FALSE, warning=FALSE}
+score_all_reg <- feols(score~treatment + age + gender + GPA + work_experience, data=total, se='white')
+score_all_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+
+#### Regression of completion time on treatment
+```{r}
+duration_reg <- feols(duration~treatment, data=total, se='white')
+duration_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Age
+```{r}
+duration_age_reg <- feols(duration~treatment + age, data=total, se='white')
+duration_age_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Gender
+```{r}
+duration_gender_reg <- feols(duration~treatment + gender, data=total, se='white')
+duration_gender_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for GPA
+```{r}
+duration_gpa_reg <- feols(duration~treatment + GPA, data=total, se='white')
+duration_gpa_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for Work Experience
+```{r}
+duration_exp_reg <- feols(duration~treatment + work_experience, data=total, se='white')
+duration_exp_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+* Controlling for All covariates
+```{r message=FALSE, warning=FALSE}
+duration_all_reg <- feols(duration~treatment + age + gender + GPA + work_experience, data=total, se='white')
+duration_all_reg %>% tidy() %>% kable(col.names = c("Predictor", "Coefficient", "SE", "T-Stat", "P-Value"), digits = c(0, 3, 3, 3, 3), align = 'c')
+```
+
+
+### Limitations
+(Sylar)
+
+
+### Conclusion
+(Antonio)
+
+
+
