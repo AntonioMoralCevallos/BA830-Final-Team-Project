@@ -19,6 +19,7 @@ library(stargazer)
 library(modelsummary)
 library(mltools)
 library(knitr)
+library(ggplot2)
 ```
 
 ##data loading 
@@ -68,6 +69,12 @@ control_avg <- total[total$treatment == 0, mean(score)]
 control_avg
 ```
 We found that average score of control group is slightly higher than that of treatment group. 
+
+```{r}
+this_graph <- total[, .(mean_score = mean(score)), by = treatment]
+this_graph$treatment <- as.factor(this_graph$treatment)
+ggplot(this_graph, aes(x = treatment, y = mean_score, fill=treatment)) + geom_bar(stat = 'identity') + ggtitle("Average Score per Treatment & Control")
+```
 
 ##ttest
 ```{r}
