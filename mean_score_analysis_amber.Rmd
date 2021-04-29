@@ -76,6 +76,12 @@ this_graph$treatment <- as.factor(this_graph$treatment)
 ggplot(this_graph, aes(x = treatment, y = mean_score, fill=treatment)) + geom_bar(stat = 'identity') + ggtitle("Average Score per Treatment & Control")
 ```
 
+```{r}
+that_graph <- total[, .(Time_in_seconds = mean(duration)), by = treatment]
+that_graph$treatment <- as.factor(that_graph$treatment)
+ggplot(that_graph, aes(x = treatment, y = Time_in_seconds, fill=treatment)) + geom_bar(stat = 'identity') + ggtitle("Time taken of Treatment & Control")
+```
+
 ##ttest
 ```{r}
 t.test(total[treatment == 1, score], 
